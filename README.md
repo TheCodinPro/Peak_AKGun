@@ -1,3 +1,3 @@
-# Martlet Plush
+# AK Gun Mod
 
-This mod adds a plushie of Martlet and her zenith form from UTY into PEAK! ^v^
+This mod re-adds the AK leftover in PEAK's files and makes it functional.

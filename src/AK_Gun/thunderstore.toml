@@ -5,10 +5,10 @@ schemaVersion = "0.0.1"
 repository = "https://thunderstore.io"
 
 [package]
-namespace = "TODO: Fill in your Thunderstore team name here"
+namespace = "TheCodinPro"
 name = "AK_Gun"
-description = "TODO: Fill in short mod description."
-websiteUrl = "" # TODO: Add a link to your mod repository here (optional)
+description = "Re-adds the AK gun left in Peak's files and makes it functional."
+websiteUrl = "https://github.com/TheCodinPro/Peak_AKGun"
 containsNsfwContent = false
 
 [package.dependencies]

@@ -35,155 +35,156 @@ public partial class Plugin : BaseUnityPlugin
     internal static ManualLogSource Log { get; private set; } = null!;
 
     private Coroutine? LevelLoadCompleteCoroutine;
-    private static class Util
-	{
-		public static IEnumerable<GameObject> GetChildrenOf(GameObject target)
-		{
-			Transform transform = target.GetComponent<Transform>();
-			if ((object)transform == null)
-			{
-				return Array.Empty<GameObject>();
-			}
-			return from Transform childTransform in transform
-				select childTransform.gameObject;
-		}
+    
+ //    private static class Util
+	// {
+	// 	public static IEnumerable<GameObject> GetChildrenOf(GameObject target)
+	// 	{
+	// 		Transform transform = target.GetComponent<Transform>();
+	// 		if ((object)transform == null)
+	// 		{
+	// 			return Array.Empty<GameObject>();
+	// 		}
+	// 		return from Transform childTransform in transform
+	// 			select childTransform.gameObject;
+	// 	}
+ //
+	// 	public static Mesh EnsureMeshReadable(Mesh mesh)
+	// 	{
+	// 		if (!mesh.isReadable)
+	// 		{
+	// 			return MakeReadableMeshCopy(mesh);
+	// 		}
+	// 		return mesh;
+	// 	}
+ //
+	// 	public static Mesh MakeReadableMeshCopy(Mesh nonReadableMesh)
+	// 	{
+	// 		Mesh meshCopy = new Mesh();
+	// 		meshCopy.indexFormat = nonReadableMesh.indexFormat;
+	// 		GraphicsBuffer verticesBuffer = nonReadableMesh.GetVertexBuffer(0);
+	// 		int totalSize = verticesBuffer.stride * verticesBuffer.count;
+	// 		byte[] data = new byte[totalSize];
+	// 		verticesBuffer.GetData(data);
+	// 		meshCopy.SetVertexBufferParams(nonReadableMesh.vertexCount, nonReadableMesh.GetVertexAttributes());
+	// 		meshCopy.SetVertexBufferData(data, 0, 0, totalSize);
+	// 		verticesBuffer.Release();
+	// 		meshCopy.subMeshCount = nonReadableMesh.subMeshCount;
+	// 		GraphicsBuffer indexesBuffer = nonReadableMesh.GetIndexBuffer();
+	// 		int tot = indexesBuffer.stride * indexesBuffer.count;
+	// 		byte[] indexesData = new byte[tot];
+	// 		indexesBuffer.GetData(indexesData);
+	// 		meshCopy.SetIndexBufferParams(indexesBuffer.count, nonReadableMesh.indexFormat);
+	// 		meshCopy.SetIndexBufferData(indexesData, 0, 0, tot);
+	// 		indexesBuffer.Release();
+	// 		uint currentIndexOffset = 0u;
+	// 		for (int i = 0; i < meshCopy.subMeshCount; i++)
+	// 		{
+	// 			uint subMeshIndexCount = nonReadableMesh.GetIndexCount(i);
+	// 			meshCopy.SetSubMesh(i, new SubMeshDescriptor((int)currentIndexOffset, (int)subMeshIndexCount));
+	// 			currentIndexOffset += subMeshIndexCount;
+	// 		}
+	// 		meshCopy.RecalculateNormals();
+	// 		meshCopy.RecalculateBounds();
+	// 		return meshCopy;
+	// 	}
+	// }
 
-		public static Mesh EnsureMeshReadable(Mesh mesh)
-		{
-			if (!mesh.isReadable)
-			{
-				return MakeReadableMeshCopy(mesh);
-			}
-			return mesh;
-		}
-
-		public static Mesh MakeReadableMeshCopy(Mesh nonReadableMesh)
-		{
-			Mesh meshCopy = new Mesh();
-			meshCopy.indexFormat = nonReadableMesh.indexFormat;
-			GraphicsBuffer verticesBuffer = nonReadableMesh.GetVertexBuffer(0);
-			int totalSize = verticesBuffer.stride * verticesBuffer.count;
-			byte[] data = new byte[totalSize];
-			verticesBuffer.GetData(data);
-			meshCopy.SetVertexBufferParams(nonReadableMesh.vertexCount, nonReadableMesh.GetVertexAttributes());
-			meshCopy.SetVertexBufferData(data, 0, 0, totalSize);
-			verticesBuffer.Release();
-			meshCopy.subMeshCount = nonReadableMesh.subMeshCount;
-			GraphicsBuffer indexesBuffer = nonReadableMesh.GetIndexBuffer();
-			int tot = indexesBuffer.stride * indexesBuffer.count;
-			byte[] indexesData = new byte[tot];
-			indexesBuffer.GetData(indexesData);
-			meshCopy.SetIndexBufferParams(indexesBuffer.count, nonReadableMesh.indexFormat);
-			meshCopy.SetIndexBufferData(indexesData, 0, 0, tot);
-			indexesBuffer.Release();
-			uint currentIndexOffset = 0u;
-			for (int i = 0; i < meshCopy.subMeshCount; i++)
-			{
-				uint subMeshIndexCount = nonReadableMesh.GetIndexCount(i);
-				meshCopy.SetSubMesh(i, new SubMeshDescriptor((int)currentIndexOffset, (int)subMeshIndexCount));
-				currentIndexOffset += subMeshIndexCount;
-			}
-			meshCopy.RecalculateNormals();
-			meshCopy.RecalculateBounds();
-			return meshCopy;
-		}
-	}
-
-	private class SceneTreeQueryNode
-	{
-		public class Epsilon : SceneTreeQueryNode
-		{
-			protected override void Run(GameObject target, int depth)
-			{
-				foreach (SceneTreeQueryNode child in Children)
-				{
-					child.Run(target, depth);
-				}
-			}
-		}
-		
-		private Predicate<GameObject> predicate;
-		
-		private Action<GameObject> action;
-
-		private readonly List<SceneTreeQueryNode> Children;
-
-		public SceneTreeQueryNode(Predicate<GameObject>? Predicate = null, Action<GameObject>? Action = null)
-		{
-			predicate = Predicate;
-			action = Action;
-			Children = new List<SceneTreeQueryNode>();
-			// base..ctor();
-		}
-
-		public bool Matches(GameObject target)
-		{
-			if (predicate != null)
-			{
-				return predicate.Invoke(target);
-			}
-			else
-			{
-				return true;
-			}
-			// return predicate.Invoke(target) ?? true;
-		}
-
-		protected virtual void Run(GameObject target, int depth)
-		{
-			action.Invoke(target);
-			foreach (var (childGameObject2, childNode2) in from GameObject childGameObject in Util.GetChildrenOf(target)
-				from childNode in Children.Cast<SceneTreeQueryNode>()
-				where childNode.Matches(childGameObject)
-				select (childGameObject, childNode))
-			{
-				childNode2.Run(childGameObject2);
-			}
-		}
-
-		public void Run(GameObject target)
-		{
-			Run(target, 0);
-		}
-
-		public void Run(IEnumerable<GameObject> targets)
-		{
-			foreach (GameObject target in targets)
-			{
-				Run(target);
-			}
-		}
-
-		public SceneTreeQueryNode Tap(Action<SceneTreeQueryNode> f)
-		{
-			f(this);
-			return this;
-		}
-
-		public SceneTreeQueryNode Child(SceneTreeQueryNode child)
-		{
-			Children.Add(child);
-			return child;
-		}
-
-		public SceneTreeQueryNode Child(Predicate<GameObject> predicate)
-		{
-			return Child(new SceneTreeQueryNode(predicate));
-		}
-
-		public SceneTreeQueryNode Child(Predicate<GameObject> predicate, Action<GameObject> action)
-		{
-			return Child(new SceneTreeQueryNode(predicate, action));
-		}
-
-		public void Tee(params Action<SceneTreeQueryNode>[] tees)
-		{
-			foreach (Action<SceneTreeQueryNode> tee in tees)
-			{
-				tee(this);
-			}
-		}
-	}
+	// private class SceneTreeQueryNode
+	// {
+	// 	public class Epsilon : SceneTreeQueryNode
+	// 	{
+	// 		protected override void Run(GameObject target, int depth)
+	// 		{
+	// 			foreach (SceneTreeQueryNode child in Children)
+	// 			{
+	// 				child.Run(target, depth);
+	// 			}
+	// 		}
+	// 	}
+	// 	
+	// 	private Predicate<GameObject> predicate;
+	// 	
+	// 	private Action<GameObject> action;
+	//
+	// 	private readonly List<SceneTreeQueryNode> Children;
+	//
+	// 	public SceneTreeQueryNode(Predicate<GameObject>? Predicate = null, Action<GameObject>? Action = null)
+	// 	{
+	// 		predicate = Predicate;
+	// 		action = Action;
+	// 		Children = new List<SceneTreeQueryNode>();
+	// 		// base..ctor();
+	// 	}
+	//
+	// 	public bool Matches(GameObject target)
+	// 	{
+	// 		if (predicate != null)
+	// 		{
+	// 			return predicate.Invoke(target);
+	// 		}
+	// 		else
+	// 		{
+	// 			return true;
+	// 		}
+	// 		// return predicate.Invoke(target) ?? true;
+	// 	}
+	//
+	// 	protected virtual void Run(GameObject target, int depth)
+	// 	{
+	// 		action.Invoke(target);
+	// 		foreach (var (childGameObject2, childNode2) in from GameObject childGameObject in Util.GetChildrenOf(target)
+	// 			from childNode in Children.Cast<SceneTreeQueryNode>()
+	// 			where childNode.Matches(childGameObject)
+	// 			select (childGameObject, childNode))
+	// 		{
+	// 			childNode2.Run(childGameObject2);
+	// 		}
+	// 	}
+	//
+	// 	public void Run(GameObject target)
+	// 	{
+	// 		Run(target, 0);
+	// 	}
+	//
+	// 	public void Run(IEnumerable<GameObject> targets)
+	// 	{
+	// 		foreach (GameObject target in targets)
+	// 		{
+	// 			Run(target);
+	// 		}
+	// 	}
+	//
+	// 	public SceneTreeQueryNode Tap(Action<SceneTreeQueryNode> f)
+	// 	{
+	// 		f(this);
+	// 		return this;
+	// 	}
+	//
+	// 	public SceneTreeQueryNode Child(SceneTreeQueryNode child)
+	// 	{
+	// 		Children.Add(child);
+	// 		return child;
+	// 	}
+	//
+	// 	public SceneTreeQueryNode Child(Predicate<GameObject> predicate)
+	// 	{
+	// 		return Child(new SceneTreeQueryNode(predicate));
+	// 	}
+	//
+	// 	public SceneTreeQueryNode Child(Predicate<GameObject> predicate, Action<GameObject> action)
+	// 	{
+	// 		return Child(new SceneTreeQueryNode(predicate, action));
+	// 	}
+	//
+	// 	public void Tee(params Action<SceneTreeQueryNode>[] tees)
+	// 	{
+	// 		foreach (Action<SceneTreeQueryNode> tee in tees)
+	// 		{
+	// 			tee(this);
+	// 		}
+	// 	}
+	// }
 	
 	private static GameObject AK;
     private void Awake()
