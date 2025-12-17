@@ -1,7 +1,9 @@
+using System;
 using Peak.Afflictions;
 using Photon.Pun;
 using Photon.Realtime;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace AK_Gun;
 
@@ -30,9 +32,15 @@ public class Action_Gun : ItemAction
 
 	public float fireRate = 0.5f;
 
+	private bool isFiring = false;
+
 	public SFX_Instance shotSFX;
 
 	private Item lastHitItem;
+
+	public Action OnShoot;
+
+	private Vector3 originalDefaultPos;
 
 	public override void RunAction()
 	{
@@ -42,13 +50,13 @@ public class Action_Gun : ItemAction
 			lastShootTime = Time.time;
 			FireGun();
 		}
-		// else
-		// {
-		// 	Debug.Log("Failed shot, firerate:" + fireRate + ". lastShootTime:" + lastShootTime);
-		// }
-		
 	}
 
+	public override void Start()
+	{
+		originalDefaultPos = item.defaultPos;
+	}
+	
 	private void OnDrawGizmosSelected()
 	{
 		Gizmos.color = Color.red;
@@ -57,6 +65,13 @@ public class Action_Gun : ItemAction
 
 	private void FireGun()
 	{
+		item.photonView.RPC("ReduceUsesRPC", RpcTarget.All);
+		// isFiring = true;
+		
+		if (this.OnShoot != null)
+		{
+			this.OnShoot();
+		}
 		if ((bool)shotSFX)
 		{
 			shotSFX.Play(base.transform.position);
@@ -77,9 +92,7 @@ public class Action_Gun : ItemAction
 				continue;
 			}
 			Character componentInParent = raycastHit.collider.GetComponentInParent<Character>();
-			// Item componentInItem = raycastHit.collider.GetComponentInParent<Item>();
 			Debug.Log("Character: " + componentInParent);
-			// Debug.Log("Item: " + componentInItem);
 			if ((bool)componentInParent)
 			{
 				Debug.Log("HIT");
@@ -88,13 +101,9 @@ public class Action_Gun : ItemAction
 					GunImpact(componentInParent, spawnTransform.position, raycastHit.point);
 					return;
 				}
-			} 
-			// else if ((bool)componentInItem)
-			// {
-			// 	Debug.Log("Item was hit!");
-			// 	GunItemImpact(componentInItem, spawnTransform.position, raycastHit.point);
-			// }
+			}
 		}
+		GunImpact(null, spawnTransform.position, lineHit.point);
 		
 		// itemSphereHits = Physics.SphereCastAll(spawnTransform.position, dartCollisionSize, MainCamera.instance.transform.forward, lineHit.distance, LayerMask.GetMask("Default"), QueryTriggerInteraction.Ignore);
 		// RaycastHit[] itemArray = itemSphereHits;
@@ -114,33 +123,61 @@ public class Action_Gun : ItemAction
 		// 		return;
 		// 	}
 		// }
+
+		var offset = 2;
+		// gameObject.transform.position += -(gameObject.transform.forward * offset) + -(gameObject.transform.up * offset);
+		// item.defaultPos = originalDefaultPos + (-(gameObject.transform.forward / offset) + (gameObject.transform.up / offset));
+	}
+
+	public void Update()
+	{
+		// if (isFiring && !character.GetComponent<CharacterInput>().usePrimaryIsPressed)
+		// {
+		// 	isFiring = false;
+		// }
+		//
+		// if (!isFiring)
+		// {
+		// 	item.defaultPos = originalDefaultPos;
+		// }
 	}
 
 	private void GunImpact(Character hitCharacter, Vector3 origin, Vector3 endpoint)
 	{
-		if ((bool)hitCharacter)
+		if (hitCharacter && (hitCharacter.GetComponent<Character>().isZombie))
 		{
-			base.photonView.RPC("RPC_GunImpact", RpcTarget.All, hitCharacter.photonView.Owner, origin, endpoint);
+			var direction = MainCamera.instance.transform.forward;
+			hitCharacter.photonView.RPC("RPC_ShootSelfT", RpcTarget.All, .25f, hitCharacter.photonView.ViewID, -(direction * 2));
+			// hitCharacter.GetComponent<GunCharacterLaunch>().ShootSelfT(0.25f, hitCharacter, -(direction * 2));
+			// hitCharacter.GetComponent<Character>().AddForce(direction * 10);
+			// photonView.RPC("RPCA_AddForceAtPosition", hitCharacter.photonView.Owner, direction * 10, endpoint, 10);
+		}
+		else if (hitCharacter)
+		{
+			photonView.RPC("RPC_GunImpact", RpcTarget.All, hitCharacter.photonView.Owner, origin, endpoint, MainCamera.instance.transform.forward);
+			// photonView.RPC("RPCA_AddForceAtPosition", hitCharacter.photonView.Owner, MainCamera.instance.transform.forward * 40, endpoint, 10);
 		}
 		else
 		{
-			base.photonView.RPC("RPC_GunImpact", RpcTarget.All, null, origin, endpoint);
+			photonView.RPC("RPC_GunImpact", RpcTarget.All, null, origin, endpoint, MainCamera.instance.transform.forward);
 		}
 	}
 
 	private void GunItemImpact(Item hitItem, Vector3 origin, Vector3 endpoint)
 	{
 		lastHitItem = hitItem;
-		base.photonView.RPC("RPC_GunItemImpact", RpcTarget.All, origin, endpoint, MainCamera.instance.transform.forward);
+		photonView.RPC("RPC_GunItemImpact", RpcTarget.All, origin, endpoint, MainCamera.instance.transform.forward);
 		// RPC_GunItemImpact(origin, endpoint, MainCamera.instance.transform.forward);
 	}
 
 	[PunRPC]
-	private void RPC_GunImpact(Photon.Realtime.Player hitPlayer, Vector3 origin, Vector3 endpoint)
+	private void RPC_GunImpact(Photon.Realtime.Player hitPlayer, Vector3 origin, Vector3 endpoint, Vector3 direction)
 	{
 		if (hitPlayer != null && hitPlayer.IsLocal)
 		{
 			Debug.Log("I'M HIT");
+			
+			Character.localCharacter.GetComponent<GunCharacterLaunch>().ShootSelfT(0.25f, Character.localCharacter, -(direction * 2));
 			Affliction[] array = afflictionsOnHit;
 			foreach (Affliction affliction in array)
 			{
@@ -154,7 +191,7 @@ public class Action_Gun : ItemAction
 	[PunRPC]
 	private void RPC_GunItemImpact(Vector3 origin, Vector3 endpoint, Vector3 direction)
 	{
-		if (lastHitItem)
+		if (lastHitItem && lastHitItem.photonView.IsMine)
 		{
 			Photon.Realtime.Player oldOwner = lastHitItem.photonView.Owner;
 			lastHitItem.photonView.TransferOwnership(GetComponent<PhotonView>().Owner);
@@ -162,10 +199,11 @@ public class Action_Gun : ItemAction
 			
 			Vector3 newVelocity = direction * 25;
 			lastHitItem.GetComponent<Rigidbody>().AddForce(newVelocity.x, newVelocity.y, newVelocity.z, ForceMode.VelocityChange);
+			// lastHitItem.GetComponent<ItemPhysicsSyncer>().ForceSyncForFrames(20);
 			Debug.Log("Item launched");
 			
-			lastHitItem.photonView.TransferOwnership(0);
-			Debug.Log("Transferred ownership of the item's PhotonView to ViewID 0.");
+			// lastHitItem.photonView.TransferOwnership(oldOwner);
+			// Debug.Log("Transferred ownership of the item's PhotonView back to the old owner.");
 		}
 		Object.Instantiate(dartVFX, endpoint, Quaternion.identity);
 		Debug.Log("Spawning DartVFX");

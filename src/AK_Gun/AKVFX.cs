@@ -1,3 +1,4 @@
+using System;
 using System.Reflection;
 using Photon.Pun;
 using Photon.Realtime;
@@ -14,7 +15,35 @@ public class AKVFX : ItemVFX
     public override void Start()
     {
         base.Start();
-        this.akParticles.Play();
+        OnEnable();
+        // this.akParticles.Play();
         // this.animator.enabled = true;
+    }
+
+    public void OnEnable()
+    {
+        Subscribe();
+    }
+
+    public void OnDisable()
+    {
+        Unsubscribe();
+    }
+
+    public void Subscribe()
+    {
+        // this.item.OnPrimaryHeld += new Action(this.RunAction);
+        this.item.GetComponent<Action_Gun>().OnShoot += new Action(this.RunAction);
+    }
+
+    public void RunAction()
+    {
+        this.akParticles.Play();
+    }
+
+    public void Unsubscribe()
+    {
+        // this.item.OnPrimaryHeld -= new Action(this.RunAction);
+        this.item.GetComponent<Action_Gun>().OnShoot -= new Action(this.RunAction);
     }
 }

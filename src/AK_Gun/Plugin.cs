@@ -6,6 +6,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using BepInEx;
 using BepInEx.Logging;
+using HarmonyLib;
 using Peak.Afflictions;
 using PEAKLib.Core;
 using PEAKLib.Items;
@@ -233,12 +234,14 @@ public partial class Plugin : BaseUnityPlugin
                 actionGun.afflictionsOnHit[0] = new Affliction_AdjustStatus(CharacterAfflictions.STATUSTYPE.Injury, 0.1f, 1);
                 Log.LogInfo(actionGun.afflictionsOnHit[0].ToString());
                 
-                // var AKvfx = AK.AddComponent<AKVFX>();
-                // AKvfx.akParticles = AK.transform.FindChild("VFX_Gunshot").gameObject.GetComponent<ParticleSystem>();
+                var AKvfx = AK.AddComponent<AKVFX>();
+                AKvfx.akParticles = AK.transform.FindChild("VFX_Gunshot").gameObject.GetComponent<ParticleSystem>();
                 
                 peakBundle.Mod.RegisterContent();
             }
         );
+        Harmony val = new Harmony(Name ?? "");
+        val.PatchAll();
         
         Log.LogInfo($"Plugin {Name} is loaded!");
     }
